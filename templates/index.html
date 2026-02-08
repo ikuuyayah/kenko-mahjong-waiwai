@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<title>健康麻雀 参加申し込み</title>
+<style>
+body {
+  font-family: "Hiragino Kaku Gothic Pro", "メイリオ", sans-serif;
+  background: #f7f7f7;
+  margin: 0;
+  padding: 0;
+}
+.container {
+  max-width: 420px;
+  margin: 0 auto;
+  background: #fff;
+  min-height: 100vh;
+  box-shadow: 0 0 8px rgba(0,0,0,0.1);
+}
+header {
+  background: #2e7d32;
+  color: #fff;
+  padding: 16px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+.calendar {
+  padding: 12px;
+}
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 12px;
+  color: #555;
+}
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+.day {
+  padding: 10px 0;
+  border-radius: 8px;
+  background: #eef2ee;
+  cursor: pointer;
+}
+.day.disabled {
+  background: #eee;
+  color: #aaa;
+  cursor: not-allowed;
+}
+.day.selected {
+  background: #2e7d32;
+  color: #fff;
+}
+.selected-box {
+  padding: 12px;
+  border-top: 1px solid #ddd;
+}
+.selected-box h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+.date-tag {
+  display: inline-block;
+  background: #e8f5e9;
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin: 4px;
+  font-size: 13px;
+}
+.btn {
+  display: block;
+  margin: 12px;
+  padding: 12px;
+  text-align: center;
+  background: #2e7d32;
+  color: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<header>参加申し込み</header>
+
+<div class="calendar">
+  <div id="monthTitle"></div>
+
+  <div class="week">
+    <div>日</div><div>月</div><div>火</div><div>水</div>
+    <div>木</div><div>金</div><div>土</div>
+  </div>
+
+  <div class="days" id="days"></div>
+</div>
+
+<div class="selected-box">
+  <h3>参加予定日</h3>
+  <div id="selected"></div>
+</div>
+
+<a class="btn" href="#">この内容で送信</a>
+</div>
+
+<script>
+const today = new Date();
+const year = today.getFullYear();
+const month = today.getMonth();
+
+const monthTitle = document.getElementById("monthTitle");
+const daysBox = document.getElementById("days");
+const selectedBox = document.getElementById("selected");
+
+monthTitle.innerText = (month + 1) + "月";
+
+let selectedDates = [];
+
+function render() {
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+
+  daysBox.innerHTML = "";
+
+  for (let i = 0; i < first.getDay(); i++) {
+    const d = document.createElement("div");
+    daysBox.appendChild(d);
+  }
+
+  for (let d = 1; d <= last.getDate(); d++) {
+    const date = new Date(year, month, d);
+    const div = document.createElement("div");
+    div.className = "day";
+    div.innerText = d;
+
+    const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const isWed = date.getDay() === 3;
+    const isSun = date.getDay() === 0;
+
+    if (isPast || isWed || isSun) {
+      div.classList.add("disabled");
+    } else {
+      div.onclick = () => toggle(date);
+    }
+
+    const key = date.toISOString().slice(0,10);
+    if (selectedDates.includes(key)) {
+      div.classList.add("selected");
+    }
+
+    daysBox.appendChild(div);
+  }
+}
+
+function toggle(date) {
+  const key = date.toISOString().slice(0,10);
+
+  if (selectedDates.includes(key)) {
+    selectedDates = selectedDates.filter(v => v !== key);
+  } else {
+    selectedDates.push(key);
+  }
+
+  updateSelected();
+  render();
+}
+
+function updateSelected() {
+  selectedBox.innerHTML = "";
+
+  selectedDates.forEach(d => {
+    const tag = document.createElement("span");
+    tag.className = "date-tag";
+    tag.innerText = d.replace(/-/g, "/");
+    selectedBox.appendChild(tag);
+  });
+}
+
+render();
+</script>
+</body>
+</html>

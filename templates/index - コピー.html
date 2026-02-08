@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>健康麻雀わいわい</title>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+<style>
+body { font-size:18px; padding:10px; }
+button { font-size:18px; padding:10px; margin:5px; }
+.name { margin:4px 0; }
+</style>
+
+</head>
+<body>
+
+<h2>🀄 参加の申し込み</h2>
+
+<input id="date" placeholder="日付を選択">
+
+<div style="margin-top:10px">
+  <button onclick="join()">参加する</button>
+  <button onclick="cancel()">やめる</button>
+</div>
+
+<h3>参加予定</h3>
+<div id="list"></div>
+
+<script>
+const LIFF_ID = "あなたのLIFF IDに置き換え";
+
+let profile;
+
+flatpickr("#date", {
+  onChange: loadList
+});
+
+async function init() {
+  await liff.init({ liffId: LIFF_ID });
+  profile = await liff.getProfile();
+}
+init();
+
+async function join() {
+  const date = document.getElementById("date").value;
+
+  await fetch("/join", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      date: date,
+      user_id: profile.userId,
+      name: profile.displayName
+    })
+  });
+
+  loadList();
+}
+
+async function cancel() {
+  const date = document.getElementById("date").value;
+
+  await fetch("/cancel", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      date: date,
+      user_id: profile.userId
+    })
+  });
+
+  loadList();
+}
+
+async function loadList() {
+  const date = document.getElementById("date").value;
+  if (!date) return;
+
+  const res = await fetch("/list?date=" + date);
+  const users = await res.json();
+
+  document.getElementById("list").innerHTML =
+    users.map(u => `<div class='name'>・${u}</div>`).join("");
+}
+</script>
+
+</body>
+</html>
