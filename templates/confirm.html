@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>参加者確認</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+
+<h2>参加者確認</h2>
+
+<input type="date" id="datePicker">
+<button onclick="loadList()">確認</button>
+
+<h3>参加者一覧</h3>
+<ul id="result"></ul>
+
+<script>
+async function loadList() {
+    const date = document.getElementById("datePicker").value;
+
+    const response = await fetch(`/list?date=${date}`);
+    const users = await response.json();
+
+    let html = "";
+    users.forEach(name => {
+        html += `<li>${name}</li>`;
+    });
+
+    document.getElementById("result").innerHTML = html;
+}
+</script>
+
+</body>
+</html>

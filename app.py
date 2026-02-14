@@ -33,6 +33,11 @@ init_db()
 def index():
     return render_template("index.html")
 
+# 参加者確認用
+@app.route("/confirm")
+def confirm():
+    return render_template("confirm.html")
+
 # 参加する
 @app.route("/join", methods=["POST"])
 def join():
