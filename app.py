@@ -1,16 +1,22 @@
 from flask import Flask, request, jsonify, render_template
-import sqlite3
+import psycopg2
+import os
 from datetime import datetime
 
 app = Flask(__name__)
 
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+def get_connection():
+    return psycopg2.connect(DATABASE_URL)
+
 # DB初期化
 def init_db():
-    conn = sqlite3.connect('participants.db')
+    conn = get_connection()
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS participants (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             date TEXT,
             user_id TEXT,
             name TEXT,
