@@ -1,34 +1,195 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>参加者確認</title>
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<meta charset="UTF-8" />
+<title>健康麻雀 参加者確認</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+body {
+  font-family: "Hiragino Kaku Gothic Pro", "メイリオ", sans-serif;
+  background: linear-gradient(160deg, #e3f2fd 0%, #ffffff 60%);
+}
+.container {
+  width: 100%;
+  min-height: 100vh;
+  background: #fff;
+  box-shadow: 0 0 20px rgba(0,0,0,0.08);
+}
+
+/* タイトル */
+header {
+  background: linear-gradient(120deg, #1565c0, #1e88e5);
+  color: #fff;
+  padding: 28px;
+  text-align: center;
+  font-size: 50px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.calendar {
+  padding: 24px 22px;
+}
+
+#monthTitle {
+  font-size: 50px;
+  margin-bottom: 16px;
+  font-weight: bold;
+  text-align: center;
+  color: #0d47a1;
+}
+
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 40px;
+}
+
+.week div:first-child {
+  color: #c62828;
+}
+.week div:last-child {
+  color: #1565c0;
+}
+
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.day {
+  padding: 26px 0;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #e3f2fd, #bbdefb);
+  cursor: pointer;
+  font-size: 40px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  transition: transform 0.1s;
+}
+
+.day:active {
+  transform: scale(0.96);
+}
+
+.day.disabled {
+  background: #f0f0f0;
+  color: #aaa;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.day.selected {
+  background: linear-gradient(120deg, #0d47a1, #1976d2);
+  color: #fff;
+}
+
+.selected-box {
+  padding: 24px 22px;
+  border-top: 2px dashed #bbdefb;
+  background: #f7fbff;
+}
+
+.selected-box h3 {
+  margin: 0 0 16px 0;
+  font-size: 40px;
+  color: #0d47a1;
+}
+
+.participant {
+  font-size: 40px;
+  margin: 8px 0;
+}
+</style>
 </head>
 <body>
 
-<h2>参加者確認</h2>
+<div class="container">
+<header>参加者確認</header>
 
-<input type="date" id="datePicker">
-<button onclick="loadList()">確認</button>
+<div class="calendar">
+  <div id="monthTitle"></div>
 
-<h3>参加者一覧</h3>
-<ul id="result"></ul>
+  <div class="week">
+    <div>日</div><div>月</div><div>火</div><div>水</div>
+    <div>木</div><div>金</div><div>土</div>
+  </div>
+
+  <div class="days" id="days"></div>
+</div>
+
+<div class="selected-box">
+  <h3>参加者一覧</h3>
+  <div id="participantList"></div>
+</div>
+
+</div>
 
 <script>
-async function loadList() {
-    const date = document.getElementById("datePicker").value;
+const today = new Date();
+const year = today.getFullYear();
+const month = today.getMonth();
 
-    const response = await fetch(`/list?date=${date}`);
-    const users = await response.json();
+const monthTitle = document.getElementById("monthTitle");
+const daysBox = document.getElementById("days");
+const listBox = document.getElementById("participantList");
 
-    let html = "";
-    users.forEach(name => {
-        html += `<li>${name}</li>`;
-    });
+monthTitle.innerText = (month + 1) + "月";
 
-    document.getElementById("result").innerHTML = html;
+function render() {
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+
+  daysBox.innerHTML = "";
+
+  for (let i = 0; i < first.getDay(); i++) {
+    const d = document.createElement("div");
+    daysBox.appendChild(d);
+  }
+
+  for (let d = 1; d <= last.getDate(); d++) {
+    const date = new Date(year, month, d);
+    const div = document.createElement("div");
+    div.className = "day";
+    div.innerText = d;
+
+    const key = date.toISOString().slice(0,10);
+
+    div.onclick = () => loadParticipants(key);
+
+    daysBox.appendChild(div);
+  }
 }
+
+async function loadParticipants(date) {
+
+  const response = await fetch(`/list?date=${date}`);
+  const users = await response.json();
+
+  listBox.innerHTML = "";
+
+  if (users.length === 0) {
+    listBox.innerHTML = "<div class='participant'>参加者なし</div>";
+    return;
+  }
+
+  users.forEach(name => {
+    const div = document.createElement("div");
+    div.className = "participant";
+    div.innerText = name;
+    listBox.appendChild(div);
+  });
+}
+
+render();
 </script>
 
 </body>
