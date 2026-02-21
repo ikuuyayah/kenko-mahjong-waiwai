@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <meta charset="UTF-8" />
 <title>健康麻雀 参加申し込み</title>
 <style>
@@ -29,6 +30,14 @@ header {
   font-size: 50px;
   font-weight: bold;
   letter-spacing: 2px;
+}
+.greeting {
+  padding: 24px;
+  font-size: 38px;
+  text-align: center;
+  line-height: 1.6;
+  background: #f1f8e9;
+  color: #2e7d32;
 }
 
 .calendar {
@@ -143,7 +152,7 @@ header {
 <body>
 <div class="container">
 <header>参加申し込み</header>
-
+<div class="greeting" id="greeting"></div>
 <div class="calendar">
   <div id="monthTitle"></div>
 
@@ -175,7 +184,26 @@ const selectedBox = document.getElementById("selected");
 monthTitle.innerText = (month + 1) + "月";
 
 let selectedDates = [];
+async function initLiff() {
 
+  await liff.init({
+    liffId: "あなたのLIFF_ID"
+  });
+
+  if (!liff.isLoggedIn()) {
+    liff.login();
+    return;
+  }
+
+  const profile = await liff.getProfile();
+  const userName = profile.displayName;
+
+  document.getElementById("greeting").innerText =
+    `こんにちは ${userName} さん。
+カレンダーの日付を押して、健康麻雀に参加したい日を選択して下さい。`;
+}
+
+initLiff();
 function render() {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
