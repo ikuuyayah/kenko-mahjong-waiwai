@@ -147,6 +147,60 @@ header {
 .btn:active {
   transform: scale(0.98);
 }
+
+/* すでに登録している日 */
+.day.registered {
+  background: linear-gradient(120deg, #2e7d32, #43a047);
+  color: #fff;
+  position: relative;
+}
+
+.day.registered::after {
+  content: "登録済";
+  display: block;
+  margin-top: 6px;
+  font-size: 22px;
+}
+
+/* 今回キャンセルする予定の日 */
+.day.cancel-pending {
+  background: linear-gradient(120deg, #ffcdd2, #ef9a9a);
+  color: #b71c1c;
+  position: relative;
+}
+
+.day.cancel-pending::after {
+  content: "取消予定";
+  display: block;
+  margin-top: 6px;
+  font-size: 20px;
+}
+
+/* 操作方法の説明 */
+.calendar-guide {
+  margin: 0 22px 20px;
+  padding: 18px;
+  background: #f5f5f5;
+  border-radius: 14px;
+  font-size: 28px;
+  line-height: 1.6;
+}
+
+.guide-green {
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+.guide-blue {
+  color: #1565c0;
+  font-weight: bold;
+}
+
+.guide-red {
+  color: #c62828;
+  font-weight: bold;
+}
+
 </style>
 </head>
 <body>
@@ -155,6 +209,12 @@ header {
 <div class="greeting" id="greeting"></div>
 <div class="calendar">
   <div id="monthTitle"></div>
+
+  <div class="calendar-guide">
+    <span class="guide-green">緑：登録済み</span><br>
+    <span class="guide-blue">青：今回追加する日</span><br>
+    <span class="guide-red">赤：今回キャンセルする日</span>
+  </div>
 
   <div class="week">
     <div>日</div><div>月</div><div>火</div><div>水</div>
@@ -180,34 +240,84 @@ const month = today.getMonth();
 const monthTitle = document.getElementById("monthTitle");
 const daysBox = document.getElementById("days");
 const selectedBox = document.getElementById("selected");
+const submitButton = document.getElementById("submitButton");
 
 monthTitle.innerText = (month + 1) + "月";
 
 let selectedDates = [];
+let registeredDates = [];
 let lineUserId = "";
 let lineUserName = "";
-async function initLiff() {
 
-  await liff.init({
-    liffId: "2009192157-Q8GY9xcM"
-  });
+/*
+  Dateを日本時間のまま YYYY-MM-DD に変換する。
+  toISOString()による日付ずれを防ぐ。
+*/
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
 
-  if (!liff.isLoggedIn()) {
-    liff.login();
-    return;
-  }
-
-  const profile = await liff.getProfile();
-
-  lineUserId = profile.userId;
-  lineUserName = profile.displayName;
-
-  document.getElementById("greeting").innerText =
-    `こんにちは ${lineUserName} さん。
-  カレンダーの日付を押して、健康麻雀に参加したい日を選択して下さい。`;
+  return `${y}-${m}-${d}`;
 }
 
-initLiff();
+/*
+  LIFFを初期化し、自分の登録日を取得する。
+*/
+async function initLiff() {
+  try {
+    await liff.init({
+      liffId: "2009192157-Q8GY9xcM"
+    });
+
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
+
+    const profile = await liff.getProfile();
+
+    lineUserId = profile.userId;
+    lineUserName = profile.displayName;
+
+    document.getElementById("greeting").innerText =
+      `こんにちは ${lineUserName} さん。
+カレンダーの日付を押して、健康麻雀に参加したい日を選択して下さい。`;
+
+    await loadMyDates();
+
+  } catch (error) {
+    console.error(error);
+
+    document.getElementById("greeting").innerText =
+      "LINEユーザー情報を取得できませんでした。";
+  }
+}
+
+/*
+  DBから自分の登録済み日を取得する。
+*/
+async function loadMyDates() {
+  const response = await fetch(
+    `/my-dates?user_id=${encodeURIComponent(lineUserId)}`
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "登録済み日を取得できませんでした。");
+  }
+
+  registeredDates = result.dates;
+  selectedDates = [...registeredDates];
+
+  updateSelected();
+  render();
+}
+
+/*
+  カレンダーを表示する。
+*/
 function render() {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
@@ -215,19 +325,30 @@ function render() {
   daysBox.innerHTML = "";
 
   for (let i = 0; i < first.getDay(); i++) {
-    const d = document.createElement("div");
-    daysBox.appendChild(d);
+    const blank = document.createElement("div");
+    daysBox.appendChild(blank);
   }
 
   for (let d = 1; d <= last.getDate(); d++) {
     const date = new Date(year, month, d);
+    const key = formatDate(date);
+
     const div = document.createElement("div");
     div.className = "day";
     div.innerText = d;
 
-    const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startOfToday = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+
+    const isPast = date < startOfToday;
     const isWed = date.getDay() === 3;
     const isSun = date.getDay() === 0;
+
+    const wasRegistered = registeredDates.includes(key);
+    const isCurrentlySelected = selectedDates.includes(key);
 
     if (isPast || isWed || isSun) {
       div.classList.add("disabled");
@@ -235,8 +356,16 @@ function render() {
       div.onclick = () => toggle(date);
     }
 
-    const key = date.toISOString().slice(0,10);
-    if (selectedDates.includes(key)) {
+    /*
+      登録状態によって色を変える。
+    */
+    if (wasRegistered && isCurrentlySelected) {
+      div.classList.add("registered");
+
+    } else if (wasRegistered && !isCurrentlySelected) {
+      div.classList.add("cancel-pending");
+
+    } else if (!wasRegistered && isCurrentlySelected) {
       div.classList.add("selected");
     }
 
@@ -244,76 +373,218 @@ function render() {
   }
 }
 
+/*
+  日付を選択・選択解除する。
+*/
 function toggle(date) {
-  const key = date.toISOString().slice(0,10);
+  const key = formatDate(date);
 
   if (selectedDates.includes(key)) {
-    selectedDates = selectedDates.filter(v => v !== key);
+    selectedDates = selectedDates.filter(value => value !== key);
   } else {
     selectedDates.push(key);
+    selectedDates.sort();
   }
 
   updateSelected();
   render();
 }
 
+/*
+  参加予定日の欄を更新する。
+*/
 function updateSelected() {
   selectedBox.innerHTML = "";
 
-  selectedDates.forEach(d => {
+  if (selectedDates.length === 0) {
+    selectedBox.innerText = "参加予定日はありません";
+    return;
+  }
+
+  selectedDates.forEach(date => {
     const tag = document.createElement("span");
     tag.className = "date-tag";
-    tag.innerText = d.replace(/-/g, "/");
+    tag.innerText = date.replace(/-/g, "/");
+
     selectedBox.appendChild(tag);
   });
 }
-document.getElementById("submitButton").addEventListener("click", async (event) => {
+
+/*
+  指定日の現在の参加人数を取得する。
+*/
+async function getParticipantCount(date) {
+  const response = await fetch(
+    `/participant-count?date=${encodeURIComponent(date)}`
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "参加人数を確認できませんでした。");
+  }
+
+  return result;
+}
+
+/*
+  新しく選んだ日を登録する。
+*/
+async function joinDates(dates) {
+  if (dates.length === 0) {
+    return;
+  }
+
+  const response = await fetch("/join", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      dates: dates,
+      user_id: lineUserId,
+      name: lineUserName
+    })
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "登録に失敗しました。");
+  }
+}
+
+/*
+  選択解除した日をキャンセルする。
+*/
+async function cancelDates(dates) {
+  if (dates.length === 0) {
+    return;
+  }
+
+  const response = await fetch("/cancel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      dates: dates,
+      user_id: lineUserId
+    })
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "キャンセルに失敗しました。");
+  }
+}
+
+/*
+  送信処理
+*/
+submitButton.addEventListener("click", async event => {
   event.preventDefault();
 
-  if (selectedDates.length === 0) {
-    alert("参加日を選択してください。");
-    return;
-  }
-
   if (!lineUserId || !lineUserName) {
-    alert("LINEユーザー情報を取得中です。少し待ってから再度お試しください。");
+    alert(
+      "LINEユーザー情報を取得中です。少し待ってから再度お試しください。"
+    );
     return;
   }
 
-  const submitButton = document.getElementById("submitButton");
-  submitButton.innerText = "登録中...";
+  /*
+    元の登録日と現在の選択日を比較する。
+  */
+  let datesToAdd = selectedDates.filter(
+    date => !registeredDates.includes(date)
+  );
+
+  const datesToCancel = registeredDates.filter(
+    date => !selectedDates.includes(date)
+  );
+
+  if (datesToAdd.length === 0 && datesToCancel.length === 0) {
+    alert("参加日の変更はありません。");
+    return;
+  }
+
+  submitButton.innerText = "確認中...";
   submitButton.style.pointerEvents = "none";
 
   try {
-    const response = await fetch("/join", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        dates: selectedDates,
-        user_id: lineUserId,
-        name: lineUserName
-      })
-    });
+    /*
+      新しく追加する日だけ、現在の人数を確認する。
+    */
+    const approvedDates = [];
 
-    const result = await response.json();
+    for (const date of datesToAdd) {
+      const countResult = await getParticipantCount(date);
 
-    if (!response.ok) {
-      throw new Error(result.message);
+      if (countResult.is_full) {
+        const displayDate = date.replace(/-/g, "/");
+
+        const answer = confirm(
+          `${displayDate}\n\n` +
+          "この日は満卓の可能性がありますが、登録しますか？"
+        );
+
+        /*
+          「いいえ」の日は登録対象から外す。
+          ほかの日の処理は続ける。
+        */
+        if (!answer) {
+          selectedDates = selectedDates.filter(
+            selectedDate => selectedDate !== date
+          );
+
+          continue;
+        }
+      }
+
+      approvedDates.push(date);
     }
 
-    alert("参加日を登録しました。");
+    datesToAdd = approvedDates;
+
+    submitButton.innerText = "登録中...";
+
+    await cancelDates(datesToCancel);
+    await joinDates(datesToAdd);
+
+    /*
+      処理完了後、最新の登録日をDBから読み直す。
+    */
+    await loadMyDates();
+
+    alert("参加予定日を更新しました。");
 
   } catch (error) {
-    alert(error.message || "登録に失敗しました。");
+    console.error(error);
+
+    alert(
+      error.message ||
+      "参加予定日の更新中にエラーが発生しました。"
+    );
+
+    /*
+      途中まで処理された可能性があるため、
+      DBの最新状態を読み直す。
+    */
+    try {
+      await loadMyDates();
+    } catch (reloadError) {
+      console.error(reloadError);
+    }
 
   } finally {
     submitButton.innerText = "この内容で送信";
     submitButton.style.pointerEvents = "auto";
   }
 });
+
 render();
+initLiff();
 </script>
 </body>
 </html>

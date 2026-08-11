@@ -106,25 +106,143 @@ def join():
         cursor.close()
         conn.close()
 
-# やめる
+# 参加申し込みをキャンセルする
 @app.route("/cancel", methods=["POST"])
 def cancel():
-    data = request.json
+    data = request.get_json(silent=True) or {}
 
-    conn = sqlite3.connect('participants.db')
-    c = conn.cursor()
+    dates = data.get("dates", [])
+    user_id = data.get("user_id")
 
-    c.execute("""
-        DELETE FROM participants
-        WHERE date=? AND user_id=?
-    """, (data["date"], data["user_id"]))
+    if not dates:
+        return jsonify({
+            "status": "error",
+            "message": "キャンセルする日付が指定されていません"
+        }), 400
 
-    conn.commit()
-    conn.close()
+    if not user_id:
+        return jsonify({
+            "status": "error",
+            "message": "LINEユーザー情報を取得できませんでした"
+        }), 400
 
-    return jsonify({"status": "ok"})
+    conn = get_connection()
+    cursor = conn.cursor()
 
+    try:
+        cursor.execute("""
+            DELETE FROM participants
+            WHERE user_id = %s
+              AND date = ANY(%s)
+        """, (user_id, dates))
 
+        deleted_count = cursor.rowcount
+        conn.commit()
+
+        return jsonify({
+            "status": "ok",
+            "message": "参加申し込みをキャンセルしました",
+            "deleted_count": deleted_count
+        })
+
+    except Exception as error:
+        conn.rollback()
+        print(error)
+
+        return jsonify({
+            "status": "error",
+            "message": "キャンセル中にエラーが発生しました"
+        }), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+# 自分が登録している参加日を取得する
+@app.route("/my-dates")
+def my_dates():
+    user_id = request.args.get("user_id")
+
+    if not user_id:
+        return jsonify({
+            "status": "error",
+            "message": "LINEユーザー情報を取得できませんでした"
+        }), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT date
+            FROM participants
+            WHERE user_id = %s
+            ORDER BY date
+        """, (user_id,))
+
+        dates = [str(row[0]) for row in cursor.fetchall()]
+        
+        return jsonify({
+            "status": "ok",
+            "dates": dates
+        })
+
+    except Exception as error:
+        print(error)
+
+        return jsonify({
+            "status": "error",
+            "message": "参加日の取得中にエラーが発生しました"
+        }), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+# 指定した日の参加人数を取得する
+@app.route("/participant-count")
+def participant_count():
+    selected_date = request.args.get("date")
+
+    if not selected_date:
+        return jsonify({
+            "status": "error",
+            "message": "日付が指定されていません"
+        }), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM participants
+            WHERE date = %s
+        """, (selected_date,))
+
+        count = cursor.fetchone()[0]
+
+        return jsonify({
+            "status": "ok",
+            "date": selected_date,
+            "count": count,
+            "is_full": count >= 32,
+            "show_warning": count >= 33
+        })
+
+    except Exception as error:
+        print(error)
+
+        return jsonify({
+            "status": "error",
+            "message": "参加人数の取得中にエラーが発生しました"
+        }), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+        
 # 指定した日の参加者一覧を取得する
 @app.route("/list")
 def list_day():
