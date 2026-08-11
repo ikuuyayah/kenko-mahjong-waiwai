@@ -108,6 +108,33 @@ header {
   font-size: 40px;
   margin: 8px 0;
 }
+/* 満卓の可能性がある場合の警告 */
+.full-warning {
+  display: none;
+  margin-bottom: 20px;
+  padding: 22px;
+  border: 4px solid #d32f2f;
+  border-radius: 16px;
+  background: #ffebee;
+  color: #b71c1c;
+  font-size: 38px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* 選択した日付の表示 */
+.selected-date {
+  margin-bottom: 16px;
+  color: #1565c0;
+  font-size: 34px;
+  font-weight: bold;
+}
+
+/* 読み込み中・エラー */
+.status-message {
+  font-size: 34px;
+  color: #555;
+}
 </style>
 </head>
 <body>
@@ -128,9 +155,16 @@ header {
 
 <div class="selected-box">
   <h3>参加者一覧</h3>
-  <div id="participantList"></div>
-</div>
 
+  <div id="selectedDate" class="selected-date">
+    確認する日付を選択してください
+  </div>
+
+  <div id="fullWarning" class="full-warning">
+    ⚠ この日は満卓の可能性があります
+  </div>
+
+  <div id="participantList"></div>
 </div>
 
 <script>
@@ -141,52 +175,170 @@ const month = today.getMonth();
 const monthTitle = document.getElementById("monthTitle");
 const daysBox = document.getElementById("days");
 const listBox = document.getElementById("participantList");
+const selectedDateBox = document.getElementById("selectedDate");
+const fullWarning = document.getElementById("fullWarning");
 
-monthTitle.innerText = (month + 1) + "月";
+let selectedDate = "";
 
+monthTitle.innerText = `${month + 1}月`;
+
+/*
+  Dateを日本時間のままYYYY-MM-DD形式に変換する。
+  toISOString()による日付ずれを防ぐ。
+*/
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+
+  return `${y}-${m}-${d}`;
+}
+
+/*
+  YYYY-MM-DDを画面表示用の日付に変換する。
+*/
+function formatDisplayDate(dateText) {
+  const [y, m, d] = dateText.split("-");
+
+  return `${Number(m)}月${Number(d)}日`;
+}
+
+/*
+  カレンダーを表示する。
+*/
 function render() {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
 
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
+
   daysBox.innerHTML = "";
 
+  /*
+    月初より前の空欄を作る。
+  */
   for (let i = 0; i < first.getDay(); i++) {
-    const d = document.createElement("div");
-    daysBox.appendChild(d);
+    const blank = document.createElement("div");
+    daysBox.appendChild(blank);
   }
 
+  /*
+    当月の日付を作る。
+  */
   for (let d = 1; d <= last.getDate(); d++) {
     const date = new Date(year, month, d);
+    const key = formatDate(date);
+
     const div = document.createElement("div");
     div.className = "day";
     div.innerText = d;
 
-    const key = date.toISOString().slice(0,10);
+    const isPast = date < startOfToday;
+    const isWednesday = date.getDay() === 3;
+    const isSunday = date.getDay() === 0;
 
-    div.onclick = () => loadParticipants(key);
+    /*
+      参加申し込み画面と同じ条件にする。
+      過去・水曜日・日曜日は選択できない。
+    */
+    if (isPast || isWednesday || isSunday) {
+      div.classList.add("disabled");
+    } else {
+      div.onclick = () => loadParticipants(key);
+    }
+
+    /*
+      現在選択している日を濃い青色にする。
+    */
+    if (key === selectedDate) {
+      div.classList.add("selected");
+    }
 
     daysBox.appendChild(div);
   }
 }
 
+/*
+  選択日の参加者一覧と参加人数を取得する。
+*/
 async function loadParticipants(date) {
+  selectedDate = date;
 
-  const response = await fetch(`/list?date=${date}`);
-  const users = await response.json();
+  render();
 
-  listBox.innerHTML = "";
+  selectedDateBox.innerText =
+    `${formatDisplayDate(date)}の参加者`;
 
-  if (users.length === 0) {
-    listBox.innerHTML = "<div class='participant'>参加者なし</div>";
-    return;
+  listBox.innerHTML =
+    "<div class='status-message'>読み込み中...</div>";
+
+  /*
+    前に表示した警告をいったん消す。
+  */
+  fullWarning.style.display = "none";
+
+  try {
+    /*
+      参加者一覧と参加人数を同時に取得する。
+    */
+    const [listResponse, countResponse] = await Promise.all([
+      fetch(`/list?date=${encodeURIComponent(date)}`),
+      fetch(`/participant-count?date=${encodeURIComponent(date)}`)
+    ]);
+
+    const users = await listResponse.json();
+    const countResult = await countResponse.json();
+
+    if (!listResponse.ok) {
+      throw new Error(
+        users.message || "参加者一覧を取得できませんでした。"
+      );
+    }
+
+    if (!countResponse.ok) {
+      throw new Error(
+        countResult.message || "参加人数を取得できませんでした。"
+      );
+    }
+
+    listBox.innerHTML = "";
+
+    /*
+      33名以上の場合だけ警告を表示する。
+    */
+    if (countResult.show_warning) {
+      fullWarning.style.display = "block";
+    }
+
+    if (users.length === 0) {
+      listBox.innerHTML =
+        "<div class='participant'>参加者なし</div>";
+      return;
+    }
+
+    /*
+      参加者名を順番に表示する。
+    */
+    users.forEach((name, index) => {
+      const div = document.createElement("div");
+      div.className = "participant";
+      div.innerText = `${index + 1}. ${name}`;
+
+      listBox.appendChild(div);
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    fullWarning.style.display = "none";
+
+    listBox.innerHTML =
+      `<div class="participant">${error.message}</div>`;
   }
-
-  users.forEach(name => {
-    const div = document.createElement("div");
-    div.className = "participant";
-    div.innerText = name;
-    listBox.appendChild(div);
-  });
 }
 
 render();
