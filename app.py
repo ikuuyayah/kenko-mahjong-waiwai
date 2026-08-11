@@ -125,24 +125,43 @@ def cancel():
     return jsonify({"status": "ok"})
 
 
-# 一覧取得
+# 指定した日の参加者一覧を取得する
 @app.route("/list")
 def list_day():
-    date = request.args.get("date")
+    selected_date = request.args.get("date")
 
-    conn = sqlite3.connect('participants.db')
-    c = conn.cursor()
+    if not selected_date:
+        return jsonify({
+            "status": "error",
+            "message": "日付が指定されていません"
+        }), 400
 
-    c.execute("""
-        SELECT name FROM participants
-        WHERE date=?
-        ORDER BY created
-    """, (date,))
+    conn = get_connection()
+    cursor = conn.cursor()
 
-    users = [r[0] for r in c.fetchall()]
-    conn.close()
+    try:
+        cursor.execute("""
+            SELECT name
+            FROM participants
+            WHERE date = %s
+            ORDER BY created
+        """, (selected_date,))
 
-    return jsonify(users)
+        users = [row[0] for row in cursor.fetchall()]
+
+        return jsonify(users)
+
+    except Exception as error:
+        print(error)
+
+        return jsonify({
+            "status": "error",
+            "message": "参加者情報を取得できませんでした"
+        }), 500
+
+    finally:
+        cursor.close()
+        conn.close()
 
 import os
 if __name__ == "__main__":
