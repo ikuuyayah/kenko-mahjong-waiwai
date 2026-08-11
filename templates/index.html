@@ -169,7 +169,7 @@ header {
   <div id="selected"></div>
 </div>
 
-<a class="btn" href="#">この内容で送信</a>
+<a class="btn" id="submitButton" href="#">この内容で送信</a>
 </div>
 
 <script>
@@ -184,6 +184,8 @@ const selectedBox = document.getElementById("selected");
 monthTitle.innerText = (month + 1) + "月";
 
 let selectedDates = [];
+let lineUserId = "";
+let lineUserName = "";
 async function initLiff() {
 
   await liff.init({
@@ -196,11 +198,13 @@ async function initLiff() {
   }
 
   const profile = await liff.getProfile();
-  const userName = profile.displayName;
+
+  lineUserId = profile.userId;
+  lineUserName = profile.displayName;
 
   document.getElementById("greeting").innerText =
-    `こんにちは ${userName} さん。
-カレンダーの日付を押して、健康麻雀に参加したい日を選択して下さい。`;
+    `こんにちは ${lineUserName} さん。
+  カレンダーの日付を押して、健康麻雀に参加したい日を選択して下さい。`;
 }
 
 initLiff();
@@ -263,7 +267,52 @@ function updateSelected() {
     selectedBox.appendChild(tag);
   });
 }
+document.getElementById("submitButton").addEventListener("click", async (event) => {
+  event.preventDefault();
 
+  if (selectedDates.length === 0) {
+    alert("参加日を選択してください。");
+    return;
+  }
+
+  if (!lineUserId || !lineUserName) {
+    alert("LINEユーザー情報を取得中です。少し待ってから再度お試しください。");
+    return;
+  }
+
+  const submitButton = document.getElementById("submitButton");
+  submitButton.innerText = "登録中...";
+  submitButton.style.pointerEvents = "none";
+
+  try {
+    const response = await fetch("/join", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        dates: selectedDates,
+        user_id: lineUserId,
+        name: lineUserName
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message);
+    }
+
+    alert("参加日を登録しました。");
+
+  } catch (error) {
+    alert(error.message || "登録に失敗しました。");
+
+  } finally {
+    submitButton.innerText = "この内容で送信";
+    submitButton.style.pointerEvents = "auto";
+  }
+});
 render();
 </script>
 </body>

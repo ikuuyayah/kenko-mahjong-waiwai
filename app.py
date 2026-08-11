@@ -39,36 +39,72 @@ def confirm():
     return render_template("confirm.html")
 
 # 参加する
+# 参加日を登録する
 @app.route("/join", methods=["POST"])
 def join():
-    data = request.json
+    data = request.get_json()
 
-    conn = sqlite3.connect('participants.db')
-    c = conn.cursor()
+    dates = data.get("dates", [])
+    user_id = data.get("user_id")
+    name = data.get("name")
 
-    # すでに登録されてたら無視
-    c.execute("""
-        SELECT * FROM participants
-        WHERE date=? AND user_id=?
-    """, (data["date"], data["user_id"]))
+    if not dates:
+        return jsonify({
+            "status": "error",
+            "message": "参加日が選択されていません"
+        }), 400
 
-    if not c.fetchone():
-        c.execute("""
-            INSERT INTO participants
-            (date, user_id, name, created)
-            VALUES (?, ?, ?, ?)
-        """, (
-            data["date"],
-            data["user_id"],
-            data["name"],
-            datetime.now().isoformat()
-        ))
+    if not user_id or not name:
+        return jsonify({
+            "status": "error",
+            "message": "LINEユーザー情報を取得できませんでした"
+        }), 400
 
-    conn.commit()
-    conn.close()
+    conn = get_connection()
+    cursor = conn.cursor()
 
-    return jsonify({"status": "ok"})
+    try:
+        for selected_date in dates:
+            # 同じ人・同じ日付が登録済みか確認
+            cursor.execute("""
+                SELECT id
+                FROM participants
+                WHERE date = %s AND user_id = %s
+            """, (selected_date, user_id))
 
+            # 未登録の場合だけ追加
+            if cursor.fetchone() is None:
+                cursor.execute("""
+                    INSERT INTO participants
+                        (date, user_id, name, created)
+                    VALUES
+                        (%s, %s, %s, %s)
+                """, (
+                    selected_date,
+                    user_id,
+                    name,
+                    datetime.now().isoformat()
+                ))
+
+        conn.commit()
+
+        return jsonify({
+            "status": "ok",
+            "message": "参加日を登録しました"
+        })
+
+    except Exception as error:
+        conn.rollback()
+        print(error)
+
+        return jsonify({
+            "status": "error",
+            "message": "登録中にエラーが発生しました"
+        }), 500
+
+    finally:
+        cursor.close()
+        conn.close()
 
 # やめる
 @app.route("/cancel", methods=["POST"])
