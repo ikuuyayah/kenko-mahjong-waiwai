@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>イベント情報</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: linear-gradient(160deg, #fff8e1, #ffffff);
+    color: #333;
+    font-family:
+        "Hiragino Kaku Gothic Pro",
+        "Yu Gothic",
+        "メイリオ",
+        sans-serif;
+}
+
+.container {
+    width: 100%;
+    min-height: 100vh;
+    background: #fff;
+}
+
+header {
+    padding: 26px 15px;
+    background: linear-gradient(120deg, #ef6c00, #ff9800);
+    color: #fff;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 38px;
+    letter-spacing: 2px;
+}
+
+header p {
+    margin: 8px 0 0;
+    font-size: 18px;
+}
+
+.month-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 14px;
+    background: #fff3e0;
+}
+
+.month-navigation button {
+    padding: 11px 15px;
+    border: none;
+    border-radius: 10px;
+    background: #ef6c00;
+    color: #fff;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#monthTitle {
+    margin: 0 10px;
+    font-size: 27px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.event-area {
+    padding: 18px 14px 35px;
+}
+
+.event-card {
+    margin-bottom: 20px;
+    border: 3px solid #ffb74d;
+    border-radius: 16px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.09);
+}
+
+.event-date {
+    padding: 13px 18px;
+    background: #ff9800;
+    color: #fff;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.event-content {
+    padding: 18px;
+}
+
+.event-name {
+    margin: 0 0 15px;
+    color: #e65100;
+    font-size: 29px;
+    line-height: 1.4;
+}
+
+.event-description {
+    margin-bottom: 18px;
+    font-size: 20px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+}
+
+.event-details {
+    padding: 14px;
+    border-radius: 12px;
+    background: #fff3e0;
+}
+
+.detail-row {
+    display: flex;
+    align-items: center;
+    margin: 8px 0;
+    font-size: 21px;
+}
+
+.detail-label {
+    min-width: 125px;
+    font-weight: bold;
+}
+
+.participant-count {
+    color: #d84315;
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.message {
+    margin: 25px 5px;
+    padding: 25px 15px;
+    border-radius: 14px;
+    background: #f5f5f5;
+    font-size: 21px;
+    line-height: 1.6;
+    text-align: center;
+}
+
+.error {
+    color: #c62828;
+    background: #ffebee;
+}
+
+@media (min-width: 800px) {
+    .container {
+        max-width: 800px;
+        margin: 0 auto;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <header>
+        <h1>イベント情報</h1>
+        <p>健康麻雀わいわい</p>
+    </header>
+
+    <div class="month-navigation">
+        <button type="button" id="previousMonth">
+            ＜ 前月
+        </button>
+
+        <div id="monthTitle"></div>
+
+        <button type="button" id="nextMonth">
+            翌月 ＞
+        </button>
+    </div>
+
+    <main class="event-area" id="eventArea">
+        <div class="message">読み込み中です…</div>
+    </main>
+
+</div>
+
+<script>
+const monthTitle = document.getElementById("monthTitle");
+const eventArea = document.getElementById("eventArea");
+
+let displayedDate = new Date();
+displayedDate.setDate(1);
+
+// YYYY-MM形式を作る
+function getMonthValue() {
+    const year = displayedDate.getFullYear();
+    const month = String(
+        displayedDate.getMonth() + 1
+    ).padStart(2, "0");
+
+    return `${year}-${month}`;
+}
+
+// 画面上部の年月を表示
+function updateMonthTitle() {
+    const year = displayedDate.getFullYear();
+    const month = displayedDate.getMonth() + 1;
+
+    monthTitle.textContent = `${year}年${month}月`;
+}
+
+// 開催日を日本語表示にする
+function formatEventDate(dateText) {
+    const values = dateText.split("-");
+
+    const year = Number(values[0]);
+    const month = Number(values[1]);
+    const day = Number(values[2]);
+
+    const date = new Date(year, month - 1, day);
+
+    const weekdays = [
+        "日", "月", "火", "水", "木", "金", "土"
+    ];
+
+    return `${month}月${day}日（${weekdays[date.getDay()]}）`;
+}
+
+// HTMLとして解釈されない安全な文字列を作る
+function escapeHtml(value) {
+    const element = document.createElement("div");
+    element.textContent = value ?? "";
+    return element.innerHTML;
+}
+
+// イベント情報を読み込む
+async function loadEvents() {
+    updateMonthTitle();
+
+    eventArea.innerHTML =
+        '<div class="message">読み込み中です…</div>';
+
+    try {
+        const monthValue = getMonthValue();
+
+        const response = await fetch(
+            `/api/events?month=${monthValue}`
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || result.status !== "ok") {
+            throw new Error(
+                result.message ||
+                "イベント情報を取得できませんでした"
+            );
+        }
+
+        if (result.events.length === 0) {
+            eventArea.innerHTML = `
+                <div class="message">
+                    この月に開催予定のイベントはありません。
+                </div>
+            `;
+            return;
+        }
+
+        eventArea.innerHTML = "";
+
+        result.events.forEach(function(eventData) {
+            const eventCard = document.createElement("article");
+            eventCard.className = "event-card";
+
+            eventCard.innerHTML = `
+                <div class="event-date">
+                    ${formatEventDate(eventData.event_date)}
+                </div>
+
+                <div class="event-content">
+                    <h2 class="event-name">
+                        ${escapeHtml(eventData.event_name)}
+                    </h2>
+
+                    <div class="event-description">
+                        ${escapeHtml(eventData.description)}
+                    </div>
+
+                    <div class="event-details">
+                        <div class="detail-row">
+                            <span class="detail-label">
+                                開始時刻
+                            </span>
+
+                            <span>
+                                ${escapeHtml(eventData.start_time)}
+                            </span>
+                        </div>
+
+                        <div class="detail-row">
+                            <span class="detail-label">
+                                現在参加者
+                            </span>
+
+                            <span class="participant-count">
+                                ${eventData.participant_count}名
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            eventArea.appendChild(eventCard);
+        });
+
+    } catch (error) {
+        eventArea.innerHTML = `
+            <div class="message error">
+                ${escapeHtml(error.message)}
+            </div>
+        `;
+    }
+}
+
+// 前月
+document
+    .getElementById("previousMonth")
+    .addEventListener("click", function() {
+        displayedDate.setMonth(
+            displayedDate.getMonth() - 1
+        );
+
+        loadEvents();
+    });
+
+// 翌月
+document
+    .getElementById("nextMonth")
+    .addEventListener("click", function() {
+        displayedDate.setMonth(
+            displayedDate.getMonth() + 1
+        );
+
+        loadEvents();
+    });
+
+// 最初の表示
+loadEvents();
+</script>
+
+</body>
+</html>

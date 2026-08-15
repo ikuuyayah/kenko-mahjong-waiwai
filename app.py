@@ -156,6 +156,11 @@ def confirm():
 def event_admin():
     return render_template("event_admin.html")
 
+# 利用者向けイベント情報画面
+@app.route("/event-info")
+def event_info():
+    return render_template("event_info.html")
+
 # イベント情報を取得する
 @app.route("/api/events")
 def get_events():
