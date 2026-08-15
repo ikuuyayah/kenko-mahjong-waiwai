@@ -6,6 +6,104 @@ from datetime import datetime
 app = Flask(__name__)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+
+# イベントを登録する（管理者用）
+@app.route("/api/events/create", methods=["POST"])
+def create_event():
+    data = request.get_json(silent=True) or {}
+
+    admin_password = data.get("admin_password")
+    event_date = data.get("event_date")
+    event_name = data.get("event_name")
+    description = data.get("description", "")
+    start_time = data.get("start_time")
+
+    # 管理用パスワードを確認
+    if not ADMIN_PASSWORD:
+        return jsonify({
+            "status": "error",
+            "message": "管理用パスワードが設定されていません"
+        }), 500
+
+    if admin_password != ADMIN_PASSWORD:
+        return jsonify({
+            "status": "error",
+            "message": "管理用パスワードが違います"
+        }), 403
+
+    # 必須項目を確認
+    if not event_date or not event_name or not start_time:
+        return jsonify({
+            "status": "error",
+            "message": "開催日・イベント名・開始時刻を入力してください"
+        }), 400
+
+    # 日付と時刻の形式を確認
+    try:
+        datetime.strptime(event_date, "%Y-%m-%d")
+        datetime.strptime(start_time, "%H:%M")
+    except ValueError:
+        return jsonify({
+            "status": "error",
+            "message": "開催日または開始時刻の形式が正しくありません"
+        }), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # 同じ日にイベントが登録されていないか確認
+        cursor.execute("""
+            SELECT id
+            FROM events
+            WHERE event_date = %s
+        """, (event_date,))
+
+        if cursor.fetchone() is not None:
+            return jsonify({
+                "status": "error",
+                "message": "この開催日にはすでにイベントが登録されています"
+            }), 409
+
+        # イベントを登録
+        cursor.execute("""
+            INSERT INTO events (
+                event_date,
+                event_name,
+                description,
+                start_time
+            )
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+        """, (
+            event_date,
+            event_name,
+            description,
+            start_time
+        ))
+
+        event_id = cursor.fetchone()[0]
+        conn.commit()
+
+        return jsonify({
+            "status": "ok",
+            "message": "イベントを登録しました",
+            "event_id": event_id
+        })
+
+    except Exception as error:
+        conn.rollback()
+        print(error)
+
+        return jsonify({
+            "status": "error",
+            "message": "イベントの登録中にエラーが発生しました"
+        }), 500
+
+    finally:
+        cursor.close()
+        conn.close()
 
 def get_connection():
     return psycopg2.connect(DATABASE_URL)
@@ -52,7 +150,12 @@ def index():
 @app.route("/confirm")
 def confirm():
     return render_template("confirm.html")
-    
+
+# イベント管理画面
+@app.route("/event-admin")
+def event_admin():
+    return render_template("event_admin.html")
+
 # イベント情報を取得する
 @app.route("/api/events")
 def get_events():

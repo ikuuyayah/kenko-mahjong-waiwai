@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>イベント管理</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 20px;
+    font-family:
+        "Hiragino Kaku Gothic Pro",
+        "Yu Gothic",
+        "メイリオ",
+        sans-serif;
+    background: linear-gradient(160deg, #fff3e0, #ffffff);
+    color: #333;
+}
+
+.container {
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+}
+
+header {
+    padding: 25px 15px;
+    background: linear-gradient(120deg, #ef6c00, #ff9800);
+    color: #ffffff;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 30px;
+}
+
+header p {
+    margin: 8px 0 0;
+    font-size: 16px;
+}
+
+.form-area {
+    padding: 25px;
+}
+
+.form-group {
+    margin-bottom: 22px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.required {
+    color: #d32f2f;
+    font-size: 14px;
+}
+
+input,
+textarea {
+    width: 100%;
+    padding: 14px;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    font-size: 18px;
+    background: #ffffff;
+}
+
+input:focus,
+textarea:focus {
+    border-color: #ff9800;
+    outline: none;
+}
+
+textarea {
+    min-height: 140px;
+    resize: vertical;
+}
+
+button {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(120deg, #ef6c00, #ff9800);
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+button:disabled {
+    background: #aaa;
+    cursor: not-allowed;
+}
+
+#message {
+    display: none;
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 10px;
+    font-size: 17px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.success {
+    display: block !important;
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 2px solid #81c784;
+}
+
+.error {
+    display: block !important;
+    background: #ffebee;
+    color: #c62828;
+    border: 2px solid #ef9a9a;
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+
+    .form-area {
+        padding: 20px 15px;
+    }
+
+    header h1 {
+        font-size: 26px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <header>
+        <h1>イベント管理</h1>
+        <p>健康麻雀わいわい</p>
+    </header>
+
+    <div class="form-area">
+
+        <form id="eventForm">
+
+            <div class="form-group">
+                <label for="adminPassword">
+                    管理用パスワード
+                    <span class="required">必須</span>
+                </label>
+
+                <input
+                    type="password"
+                    id="adminPassword"
+                    autocomplete="current-password"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="eventDate">
+                    開催日
+                    <span class="required">必須</span>
+                </label>
+
+                <input
+                    type="date"
+                    id="eventDate"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="eventName">
+                    イベント名
+                    <span class="required">必須</span>
+                </label>
+
+                <input
+                    type="text"
+                    id="eventName"
+                    maxlength="100"
+                    placeholder="例：健康麻雀交流大会"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="description">
+                    内容
+                </label>
+
+                <textarea
+                    id="description"
+                    placeholder="イベントの内容を入力してください"
+                ></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="startTime">
+                    開始時刻
+                    <span class="required">必須</span>
+                </label>
+
+                <input
+                    type="time"
+                    id="startTime"
+                    required
+                >
+            </div>
+
+            <button type="submit" id="submitButton">
+                イベントを登録する
+            </button>
+
+            <div id="message"></div>
+
+        </form>
+
+    </div>
+</div>
+
+<script>
+const eventForm = document.getElementById("eventForm");
+const submitButton = document.getElementById("submitButton");
+const messageArea = document.getElementById("message");
+
+eventForm.addEventListener("submit", async function(event) {
+    event.preventDefault();
+
+    messageArea.className = "";
+    messageArea.style.display = "none";
+    messageArea.textContent = "";
+
+    submitButton.disabled = true;
+    submitButton.textContent = "登録しています…";
+
+    const requestData = {
+        admin_password:
+            document.getElementById("adminPassword").value,
+
+        event_date:
+            document.getElementById("eventDate").value,
+
+        event_name:
+            document.getElementById("eventName").value.trim(),
+
+        description:
+            document.getElementById("description").value.trim(),
+
+        start_time:
+            document.getElementById("startTime").value
+    };
+
+    try {
+        const response = await fetch("/api/events/create", {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify(requestData)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.message || "イベントを登録できませんでした"
+            );
+        }
+
+        messageArea.textContent = result.message;
+        messageArea.className = "success";
+
+        // 登録後も管理用パスワードだけは残す
+        document.getElementById("eventDate").value = "";
+        document.getElementById("eventName").value = "";
+        document.getElementById("description").value = "";
+        document.getElementById("startTime").value = "";
+
+    } catch (error) {
+        messageArea.textContent = error.message;
+        messageArea.className = "error";
+
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "イベントを登録する";
+    }
+});
+</script>
+
+</body>
+</html>
