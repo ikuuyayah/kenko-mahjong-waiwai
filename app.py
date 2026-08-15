@@ -14,6 +14,8 @@ def get_connection():
 def init_db():
     conn = get_connection()
     c = conn.cursor()
+
+    # 参加申し込み
     c.execute('''
         CREATE TABLE IF NOT EXISTS participants (
             id SERIAL PRIMARY KEY,
@@ -23,7 +25,20 @@ def init_db():
             created TEXT
         )
     ''')
+
+    # イベント情報
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS events (
+            id SERIAL PRIMARY KEY,
+            event_date DATE NOT NULL,
+            event_name VARCHAR(100) NOT NULL,
+            description TEXT,
+            start_time TIME NOT NULL
+        )
+    ''')
+
     conn.commit()
+    c.close()
     conn.close()
 
 init_db()
