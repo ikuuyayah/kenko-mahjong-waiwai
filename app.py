@@ -52,6 +52,84 @@ def index():
 @app.route("/confirm")
 def confirm():
     return render_template("confirm.html")
+    
+# イベント情報を取得する
+@app.route("/api/events")
+def get_events():
+    # 例：2026-08
+    selected_month = request.args.get("month")
+
+    # 月が指定されていない場合は今月
+    if not selected_month:
+        selected_month = datetime.now().strftime("%Y-%m")
+
+    # YYYY-MM形式になっているか確認
+    try:
+        datetime.strptime(selected_month, "%Y-%m")
+    except ValueError:
+        return jsonify({
+            "status": "error",
+            "message": "月はYYYY-MM形式で指定してください"
+        }), 400
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                e.id,
+                e.event_date,
+                e.event_name,
+                e.description,
+                e.start_time,
+                COUNT(p.id) AS participant_count
+            FROM events e
+            LEFT JOIN participants p
+                ON p.date = TO_CHAR(e.event_date, 'YYYY-MM-DD')
+            WHERE e.event_date >= TO_DATE(%s || '-01', 'YYYY-MM-DD')
+              AND e.event_date < TO_DATE(%s || '-01', 'YYYY-MM-DD')
+                                 + INTERVAL '1 month'
+            GROUP BY
+                e.id,
+                e.event_date,
+                e.event_name,
+                e.description,
+                e.start_time
+            ORDER BY
+                e.event_date,
+                e.start_time
+        """, (selected_month, selected_month))
+
+        events = []
+
+        for row in cursor.fetchall():
+            events.append({
+                "id": row[0],
+                "event_date": row[1].strftime("%Y-%m-%d"),
+                "event_name": row[2],
+                "description": row[3] or "",
+                "start_time": row[4].strftime("%H:%M"),
+                "participant_count": row[5]
+            })
+
+        return jsonify({
+            "status": "ok",
+            "month": selected_month,
+            "events": events
+        })
+
+    except Exception as error:
+        print(error)
+
+        return jsonify({
+            "status": "error",
+            "message": "イベント情報を取得できませんでした"
+        }), 500
+
+    finally:
+        cursor.close()
+        conn.close()
 
 # 参加する
 # 参加日を登録する
