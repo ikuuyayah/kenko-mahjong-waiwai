@@ -45,7 +45,7 @@ header {
 }
 
 /* カレンダーの月 */
-#monthTitle {
+.month-title {
   font-size: 50px;
   margin-bottom: 16px;
   font-weight: bold;
@@ -201,6 +201,15 @@ header {
   font-weight: bold;
 }
 
+/* 月ごとのカレンダー */
+.month-block {
+  margin-bottom: 42px;
+}
+
+.month-block:last-child {
+  margin-bottom: 0;
+}
+
 </style>
 </head>
 <body>
@@ -208,7 +217,6 @@ header {
 <header>参加申し込み</header>
 <div class="greeting" id="greeting"></div>
 <div class="calendar">
-  <div id="monthTitle"></div>
 
   <div class="calendar-guide">
     <span class="guide-green">緑：登録済み</span><br>
@@ -216,12 +224,8 @@ header {
     <span class="guide-red">赤：今回キャンセルする日</span>
   </div>
 
-  <div class="week">
-    <div>日</div><div>月</div><div>火</div><div>水</div>
-    <div>木</div><div>金</div><div>土</div>
-  </div>
+  <div id="calendarMonths"></div>
 
-  <div class="days" id="days"></div>
 </div>
 
 <div class="selected-box">
@@ -234,15 +238,15 @@ header {
 
 <script>
 const today = new Date();
-const year = today.getFullYear();
-const month = today.getMonth();
 
-const monthTitle = document.getElementById("monthTitle");
-const daysBox = document.getElementById("days");
-const selectedBox = document.getElementById("selected");
-const submitButton = document.getElementById("submitButton");
+const calendarMonths =
+  document.getElementById("calendarMonths");
 
-monthTitle.innerText = (month + 1) + "月";
+const selectedBox =
+  document.getElementById("selected");
+
+const submitButton =
+  document.getElementById("submitButton");
 
 let selectedDates = [];
 let registeredDates = [];
@@ -316,61 +320,135 @@ async function loadMyDates() {
 }
 
 /*
-  カレンダーを表示する。
+  当月と翌月のカレンダーを表示する。
 */
 function render() {
-  const first = new Date(year, month, 1);
-  const last = new Date(year, month + 1, 0);
+  calendarMonths.innerHTML = "";
 
-  daysBox.innerHTML = "";
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
 
-  for (let i = 0; i < first.getDay(); i++) {
-    const blank = document.createElement("div");
-    daysBox.appendChild(blank);
-  }
-
-  for (let d = 1; d <= last.getDate(); d++) {
-    const date = new Date(year, month, d);
-    const key = formatDate(date);
-
-    const div = document.createElement("div");
-    div.className = "day";
-    div.innerText = d;
-
-    const startOfToday = new Date(
+  /*
+    0は当月、1は翌月。
+  */
+  for (let monthOffset = 0; monthOffset < 2; monthOffset++) {
+    const displayedMonth = new Date(
       today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
+      today.getMonth() + monthOffset,
+      1
     );
 
-    const isPast = date < startOfToday;
-    const isWed = date.getDay() === 3;
-    const isSun = date.getDay() === 0;
+    const year = displayedMonth.getFullYear();
+    const month = displayedMonth.getMonth();
 
-    const wasRegistered = registeredDates.includes(key);
-    const isCurrentlySelected = selectedDates.includes(key);
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month + 1, 0);
 
-    if (isPast || isWed || isSun) {
-      div.classList.add("disabled");
-    } else {
-      div.onclick = () => toggle(date);
+    /*
+      月全体を入れる場所。
+    */
+    const monthBlock = document.createElement("div");
+    monthBlock.className = "month-block";
+
+    /*
+      「2026年8月」のタイトル。
+    */
+    const monthTitle = document.createElement("div");
+    monthTitle.className = "month-title";
+    monthTitle.innerText = `${year}年${month + 1}月`;
+
+    monthBlock.appendChild(monthTitle);
+
+    /*
+      曜日の表示。
+    */
+    const weekBox = document.createElement("div");
+    weekBox.className = "week";
+
+    const weekNames = [
+      "日", "月", "火", "水", "木", "金", "土"
+    ];
+
+    weekNames.forEach(weekName => {
+      const weekDay = document.createElement("div");
+      weekDay.innerText = weekName;
+      weekBox.appendChild(weekDay);
+    });
+
+    monthBlock.appendChild(weekBox);
+
+    /*
+      日付を入れる場所。
+    */
+    const daysBox = document.createElement("div");
+    daysBox.className = "days";
+
+    /*
+      月初より前の空欄。
+    */
+    for (let i = 0; i < first.getDay(); i++) {
+      const blank = document.createElement("div");
+      daysBox.appendChild(blank);
     }
 
     /*
-      登録状態によって色を変える。
+      その月の日付を作成する。
     */
-    if (wasRegistered && isCurrentlySelected) {
-      div.classList.add("registered");
+    for (let d = 1; d <= last.getDate(); d++) {
+      const date = new Date(year, month, d);
+      const key = formatDate(date);
 
-    } else if (wasRegistered && !isCurrentlySelected) {
-      div.classList.add("cancel-pending");
+      const div = document.createElement("div");
+      div.className = "day";
+      div.innerText = d;
 
-    } else if (!wasRegistered && isCurrentlySelected) {
-      div.classList.add("selected");
+      const isPast = date < startOfToday;
+      const isWednesday = date.getDay() === 3;
+      const isSunday = date.getDay() === 0;
+
+      const wasRegistered =
+        registeredDates.includes(key);
+
+      const isCurrentlySelected =
+        selectedDates.includes(key);
+
+      /*
+        登録済みの日は、曜日や過去日に関係なく
+        キャンセル操作を可能にする。
+      */
+      if (wasRegistered) {
+        div.onclick = () => toggle(date);
+
+      } else if (isPast || isWednesday || isSunday) {
+        div.classList.add("disabled");
+
+      } else {
+        div.onclick = () => toggle(date);
+      }
+
+      /*
+        日付の状態によって色を変更する。
+      */
+      if (wasRegistered && isCurrentlySelected) {
+        div.classList.add("registered");
+
+      } else if (wasRegistered && !isCurrentlySelected) {
+        div.classList.add("cancel-pending");
+
+      } else if (!wasRegistered && isCurrentlySelected) {
+        div.classList.add("selected");
+      }
+
+      daysBox.appendChild(div);
     }
 
-    daysBox.appendChild(div);
+    monthBlock.appendChild(daysBox);
+    calendarMonths.appendChild(monthBlock);
   }
+
 }
 
 /*
