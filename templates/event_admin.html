@@ -164,7 +164,7 @@ button:disabled {
     <div class="form-area">
 
         <form id="eventForm">
-
+<!-- 管理者パスワードを再開するときに有効にする
             <div class="form-group">
                 <label for="adminPassword">
                     管理用パスワード
@@ -177,7 +177,7 @@ button:disabled {
                     autocomplete="current-password"
                     required
                 >
-            </div>
+            </div> -->
 
             <div class="form-group">
                 <label for="eventDate">
@@ -258,8 +258,9 @@ eventForm.addEventListener("submit", async function(event) {
     submitButton.textContent = "登録しています…";
 
     const requestData = {
-        admin_password:
-            document.getElementById("adminPassword").value,
+        // パスワード認証を再開するときに使用
+        // admin_password:
+        //   document.getElementById("adminPassword").value,
 
         event_date:
             document.getElementById("eventDate").value,

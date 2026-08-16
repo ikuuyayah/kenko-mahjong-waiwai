@@ -6,31 +6,31 @@ from datetime import datetime
 app = Flask(__name__)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+# ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
 
 # イベントを登録する（管理者用）
 @app.route("/api/events/create", methods=["POST"])
 def create_event():
     data = request.get_json(silent=True) or {}
 
-    admin_password = data.get("admin_password")
+    # admin_password = data.get("admin_password")
     event_date = data.get("event_date")
     event_name = data.get("event_name")
     description = data.get("description", "")
     start_time = data.get("start_time")
 
-    # 管理用パスワードを確認
-    if not ADMIN_PASSWORD:
-        return jsonify({
-            "status": "error",
-            "message": "管理用パスワードが設定されていません"
-        }), 500
+    # 管理用パスワードを確認　※一時停止中
+    # if not ADMIN_PASSWORD:
+    #     return jsonify({
+    #         "status": "error",
+    #         "message": "管理用パスワードが設定されていません"
+    #     }), 500
 
-    if admin_password != ADMIN_PASSWORD:
-        return jsonify({
-            "status": "error",
-            "message": "管理用パスワードが違います"
-        }), 403
+    # if admin_password != ADMIN_PASSWORD:
+    #     return jsonify({
+    #         "status": "error",
+    #         "message": "管理用パスワードが違います"
+    #     }), 403
 
     # 必須項目を確認
     if not event_date or not event_name or not start_time:
