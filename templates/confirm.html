@@ -36,7 +36,7 @@ header {
   padding: 24px 22px;
 }
 
-#monthTitle {
+.month-title {
   font-size: 50px;
   margin-bottom: 16px;
   font-weight: bold;
@@ -135,6 +135,14 @@ header {
   font-size: 34px;
   color: #555;
 }
+/* 月ごとのカレンダー */
+.month-block {
+  margin-bottom: 42px;
+}
+
+.month-block:last-child {
+  margin-bottom: 0;
+}
 </style>
 </head>
 <body>
@@ -143,14 +151,7 @@ header {
 <header>参加者確認</header>
 
 <div class="calendar">
-  <div id="monthTitle"></div>
-
-  <div class="week">
-    <div>日</div><div>月</div><div>火</div><div>水</div>
-    <div>木</div><div>金</div><div>土</div>
-  </div>
-
-  <div class="days" id="days"></div>
+  <div id="calendarMonths"></div>
 </div>
 
 <div class="selected-box">
@@ -169,18 +170,20 @@ header {
 
 <script>
 const today = new Date();
-const year = today.getFullYear();
-const month = today.getMonth();
 
-const monthTitle = document.getElementById("monthTitle");
-const daysBox = document.getElementById("days");
-const listBox = document.getElementById("participantList");
-const selectedDateBox = document.getElementById("selectedDate");
-const fullWarning = document.getElementById("fullWarning");
+const calendarMonths =
+  document.getElementById("calendarMonths");
+
+const listBox =
+  document.getElementById("participantList");
+
+const selectedDateBox =
+  document.getElementById("selectedDate");
+
+const fullWarning =
+  document.getElementById("fullWarning");
 
 let selectedDate = "";
-
-monthTitle.innerText = `${month + 1}月`;
 
 /*
   Dateを日本時間のままYYYY-MM-DD形式に変換する。
@@ -204,11 +207,10 @@ function formatDisplayDate(dateText) {
 }
 
 /*
-  カレンダーを表示する。
+  当月と翌月のカレンダーを表示する。
 */
 function render() {
-  const first = new Date(year, month, 1);
-  const last = new Date(year, month + 1, 0);
+  calendarMonths.innerHTML = "";
 
   const startOfToday = new Date(
     today.getFullYear(),
@@ -216,52 +218,108 @@ function render() {
     today.getDate()
   );
 
-  daysBox.innerHTML = "";
-
   /*
-    月初より前の空欄を作る。
+    0は当月、1は翌月。
   */
-  for (let i = 0; i < first.getDay(); i++) {
-    const blank = document.createElement("div");
-    daysBox.appendChild(blank);
-  }
+  for (let monthOffset = 0; monthOffset < 2; monthOffset++) {
+    const displayedMonth = new Date(
+      today.getFullYear(),
+      today.getMonth() + monthOffset,
+      1
+    );
 
-  /*
-    当月の日付を作る。
-  */
-  for (let d = 1; d <= last.getDate(); d++) {
-    const date = new Date(year, month, d);
-    const key = formatDate(date);
+    const year = displayedMonth.getFullYear();
+    const month = displayedMonth.getMonth();
 
-    const div = document.createElement("div");
-    div.className = "day";
-    div.innerText = d;
-
-    const isPast = date < startOfToday;
-    const isWednesday = date.getDay() === 3;
-    const isSunday = date.getDay() === 0;
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month + 1, 0);
 
     /*
-      参加申し込み画面と同じ条件にする。
-      過去・水曜日・日曜日は選択できない。
+      月全体を入れる場所。
     */
-    if (isPast || isWednesday || isSunday) {
-      div.classList.add("disabled");
-    } else {
-      div.onclick = () => loadParticipants(key);
+    const monthBlock = document.createElement("div");
+    monthBlock.className = "month-block";
+
+    /*
+      月タイトル。
+    */
+    const monthTitle = document.createElement("div");
+    monthTitle.className = "month-title";
+    monthTitle.innerText = `${year}年${month + 1}月`;
+
+    monthBlock.appendChild(monthTitle);
+
+    /*
+      曜日の表示。
+    */
+    const weekBox = document.createElement("div");
+    weekBox.className = "week";
+
+    const weekNames = [
+      "日", "月", "火", "水", "木", "金", "土"
+    ];
+
+    weekNames.forEach(weekName => {
+      const weekDay = document.createElement("div");
+      weekDay.innerText = weekName;
+      weekBox.appendChild(weekDay);
+    });
+
+    monthBlock.appendChild(weekBox);
+
+    /*
+      日付を入れる場所。
+    */
+    const daysBox = document.createElement("div");
+    daysBox.className = "days";
+
+    /*
+      月初より前の空欄。
+    */
+    for (let i = 0; i < first.getDay(); i++) {
+      const blank = document.createElement("div");
+      daysBox.appendChild(blank);
     }
 
     /*
-      現在選択している日を濃い青色にする。
+      その月の日付を作成する。
     */
-    if (key === selectedDate) {
-      div.classList.add("selected");
+    for (let d = 1; d <= last.getDate(); d++) {
+      const date = new Date(year, month, d);
+      const key = formatDate(date);
+
+      const div = document.createElement("div");
+      div.className = "day";
+      div.innerText = d;
+
+      const isPast = date < startOfToday;
+      const isWednesday = date.getDay() === 3;
+      const isSunday = date.getDay() === 0;
+
+      /*
+        参加申し込み画面と同じ条件。
+        過去・水曜日・日曜日は選択不可。
+      */
+      if (isPast || isWednesday || isSunday) {
+        div.classList.add("disabled");
+      } else {
+        div.onclick = () => loadParticipants(key);
+      }
+
+      /*
+        選択中の日を濃い青色にする。
+      */
+      if (key === selectedDate) {
+        div.classList.add("selected");
+      }
+
+      daysBox.appendChild(div);
     }
 
-    daysBox.appendChild(div);
+    monthBlock.appendChild(daysBox);
+    calendarMonths.appendChild(monthBlock);
   }
 }
-
 /*
   選択日の参加者一覧と参加人数を取得する。
 */
