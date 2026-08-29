@@ -105,10 +105,13 @@ header p {
 }
 
 .event-description {
-    margin-bottom: 18px;
-    font-size: 20px;
+    margin: 36px 0;
+    padding: 0 10px;
+    font-size: 32px;
     line-height: 1.7;
-    white-space: pre-wrap;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: break-word;
 }
 
 .event-details {
@@ -285,7 +288,8 @@ async function loadEvents() {
                     </h2>
 
                     <div class="event-description">
-                        ${escapeHtml(eventData.description)}
+                        ${escapeHtml(eventData.description)
+                            .replace("月ごとの", "月ごとの<br>")}
                     </div>
 
                     <div class="event-details">
