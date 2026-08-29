@@ -196,8 +196,10 @@ def get_events():
             LEFT JOIN participants p
                 ON p.date = TO_CHAR(e.event_date, 'YYYY-MM-DD')
             WHERE e.event_date >= TO_DATE(%s || '-01', 'YYYY-MM-DD')
-              AND e.event_date < TO_DATE(%s || '-01', 'YYYY-MM-DD')
-                                 + INTERVAL '1 month'
+            AND e.event_date < TO_DATE(%s || '-01', 'YYYY-MM-DD')
+                                + INTERVAL '1 month'
+            AND e.event_date >=
+                (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')::date
             GROUP BY
                 e.id,
                 e.event_date,

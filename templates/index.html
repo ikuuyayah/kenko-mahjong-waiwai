@@ -416,13 +416,16 @@ function render() {
         selectedDates.includes(key);
 
       /*
-        登録済みの日は、曜日や過去日に関係なく
-        キャンセル操作を可能にする。
+        過去日は登録済みかどうかに関係なく閲覧のみ。
+        今日以降の登録済み日はキャンセル操作が可能。
       */
-      if (wasRegistered) {
+      if (isPast) {
+        div.classList.add("disabled");
+
+      } else if (wasRegistered) {
         div.onclick = () => toggle(date);
 
-      } else if (isPast || isWednesday || isSunday) {
+      } else if (isWednesday || isSunday) {
         div.classList.add("disabled");
 
       } else {
@@ -474,12 +477,22 @@ function toggle(date) {
 function updateSelected() {
   selectedBox.innerHTML = "";
 
-  if (selectedDates.length === 0) {
+  /*
+    今日の日付をYYYY-MM-DD形式にする。
+    過去の登録日は参加予定日の一覧に表示しない。
+  */
+  const todayKey = formatDate(today);
+
+  const upcomingDates = selectedDates.filter(
+    date => date >= todayKey
+  );
+
+  if (upcomingDates.length === 0) {
     selectedBox.innerText = "参加予定日はありません";
     return;
   }
 
-  selectedDates.forEach(date => {
+  upcomingDates.forEach(date => {
     const tag = document.createElement("span");
     tag.className = "date-tag";
     tag.innerText = date.replace(/-/g, "/");
