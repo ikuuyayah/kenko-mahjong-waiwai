@@ -210,61 +210,6 @@ header {
   margin-bottom: 0;
 }
 
-
-/* 自作ポップアップ */
-.app-modal-backdrop {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  z-index: 9999;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  box-sizing: border-box;
-}
-.app-modal-backdrop.show { display: flex; }
-.app-modal {
-  width: min(88vw, 620px);
-  background: #fff;
-  border-radius: 28px;
-  padding: 38px 30px 30px;
-  box-sizing: border-box;
-  text-align: center;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-}
-.app-modal-message {
-  white-space: pre-line;
-  font-size: 34px;
-  line-height: 1.6;
-  color: #222;
-  margin-bottom: 30px;
-  font-weight: 600;
-}
-.app-modal-actions {
-  display: flex;
-  gap: 18px;
-  justify-content: center;
-}
-.app-modal-button {
-  flex: 1;
-  border: none;
-  border-radius: 18px;
-  padding: 22px 18px;
-  font-size: 32px;
-  font-weight: bold;
-  cursor: pointer;
-}
-.app-modal-button.primary {
-  background: #2e7d32;
-  color: #fff;
-}
-.app-modal-button.secondary {
-  background: #eeeeee;
-  color: #333;
-}
-.app-modal-button:active { transform: scale(0.98); }
-
 </style>
 </head>
 <body>
@@ -291,60 +236,7 @@ header {
 <a class="btn" id="submitButton" href="#">この内容で送信</a>
 </div>
 
-
-<div id="appModalBackdrop" class="app-modal-backdrop">
-  <div class="app-modal" role="dialog" aria-modal="true" aria-labelledby="appModalMessage">
-    <div id="appModalMessage" class="app-modal-message"></div>
-    <div class="app-modal-actions">
-      <button id="appModalCancel" class="app-modal-button secondary" type="button">いいえ</button>
-      <button id="appModalOk" class="app-modal-button primary" type="button">OK</button>
-    </div>
-  </div>
-</div>
-
 <script>
-
-const appModalBackdrop = document.getElementById("appModalBackdrop");
-const appModalMessage = document.getElementById("appModalMessage");
-const appModalOk = document.getElementById("appModalOk");
-const appModalCancel = document.getElementById("appModalCancel");
-
-function showMessage(message) {
-  return new Promise(resolve => {
-    appModalMessage.innerText = message;
-    appModalCancel.style.display = "none";
-    appModalOk.innerText = "OK";
-
-    appModalOk.onclick = () => {
-      appModalBackdrop.classList.remove("show");
-      appModalOk.onclick = null;
-      resolve();
-    };
-
-    appModalBackdrop.classList.add("show");
-  });
-}
-
-function showConfirm(message) {
-  return new Promise(resolve => {
-    appModalMessage.innerText = message;
-    appModalCancel.style.display = "";
-    appModalCancel.innerText = "いいえ";
-    appModalOk.innerText = "はい";
-
-    const finish = result => {
-      appModalBackdrop.classList.remove("show");
-      appModalOk.onclick = null;
-      appModalCancel.onclick = null;
-      resolve(result);
-    };
-
-    appModalOk.onclick = () => finish(true);
-    appModalCancel.onclick = () => finish(false);
-    appModalBackdrop.classList.add("show");
-  });
-}
-
 const today = new Date();
 
 const calendarMonths =
@@ -686,8 +578,8 @@ submitButton.addEventListener("click", async event => {
   event.preventDefault();
 
   if (!lineUserId || !lineUserName) {
-    await showMessage(
-      "LINEユーザー情報を取得中です。\n少し待ってから再度お試しください。"
+    alert(
+      "LINEユーザー情報を取得中です。少し待ってから再度お試しください。"
     );
     return;
   }
@@ -704,7 +596,7 @@ submitButton.addEventListener("click", async event => {
   );
 
   if (datesToAdd.length === 0 && datesToCancel.length === 0) {
-    await showMessage("参加日の変更はありません。");
+    alert("参加日の変更はありません。");
     return;
   }
 
@@ -723,7 +615,7 @@ submitButton.addEventListener("click", async event => {
       if (countResult.is_full) {
         const displayDate = date.replace(/-/g, "/");
 
-        const answer = await showConfirm(
+        const answer = confirm(
           `${displayDate}\n\n` +
           "この日は満卓の可能性がありますが、登録しますか？"
         );
@@ -756,19 +648,14 @@ submitButton.addEventListener("click", async event => {
     */
     await loadMyDates();
 
-    if (datesToAdd.length > 0 && datesToCancel.length === 0) {
-      await showMessage("参加申し込みが完了しました。");
-    } else if (datesToAdd.length === 0 && datesToCancel.length > 0) {
-      await showMessage("参加予定をキャンセルしました。");
-    } else {
-      await showMessage("参加予定日を更新しました。");
-    }
+    alert("参加予定日を更新しました。");
 
   } catch (error) {
     console.error(error);
 
-    await showMessage(
-      "通信に失敗しました。\n少し待ってからもう一度お試しください。"
+    alert(
+      error.message ||
+      "参加予定日の更新中にエラーが発生しました。"
     );
 
     /*
