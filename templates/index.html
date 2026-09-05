@@ -265,6 +265,65 @@ header {
 }
 .app-modal-button:active { transform: scale(0.98); }
 
+/* イベント開催日 */
+.day.event-day {
+  background: linear-gradient(180deg, #fff3e0, #ffcc80);
+  border: 4px solid #fb8c00;
+  color: #bf360c;
+  padding: 12px 3px;
+  min-height: 100px;
+}
+
+/* 日付の数字 */
+.day-number {
+  display: block;
+  font-size: 40px;
+  font-weight: bold;
+}
+
+/* カレンダー内のイベント名 */
+.event-label {
+  display: -webkit-box;
+  margin-top: 4px;
+  padding: 0 2px;
+  overflow: hidden;
+  color: #bf360c;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* イベント日でも登録状態の色を優先する */
+.day.event-day.registered {
+  background: linear-gradient(120deg, #2e7d32, #43a047);
+  border-color: #2e7d32;
+  color: #fff;
+}
+
+.day.event-day.selected {
+  background: linear-gradient(120deg, #1565c0, #1e88e5);
+  border-color: #1565c0;
+  color: #fff;
+}
+
+.day.event-day.cancel-pending {
+  background: linear-gradient(120deg, #ffcdd2, #ef9a9a);
+  border-color: #d32f2f;
+  color: #b71c1c;
+}
+
+.day.event-day.registered .event-label,
+.day.event-day.selected .event-label {
+  color: #fff;
+}
+
+.day.event-day.cancel-pending .event-label {
+  color: #b71c1c;
+}
+
 </style>
 </head>
 <body>
@@ -358,6 +417,10 @@ const submitButton =
 
 let selectedDates = [];
 let registeredDates = [];
+/*
+  開催日をキーにイベント名を保存する。
+*/
+let eventMap = {};
 let lineUserId = "";
 let lineUserName = "";
 
@@ -371,6 +434,59 @@ function formatDate(date) {
   const d = String(date.getDate()).padStart(2, "0");
 
   return `${y}-${m}-${d}`;
+}
+
+/*
+  当月と翌月のイベント情報を取得する。
+*/
+async function loadEvents() {
+  const monthValues = [];
+
+  for (let monthOffset = 0; monthOffset < 2; monthOffset++) {
+    const displayedMonth = new Date(
+      today.getFullYear(),
+      today.getMonth() + monthOffset,
+      1
+    );
+
+    const year = displayedMonth.getFullYear();
+    const month = String(
+      displayedMonth.getMonth() + 1
+    ).padStart(2, "0");
+
+    monthValues.push(`${year}-${month}`);
+  }
+
+  try {
+    const responses = await Promise.all(
+      monthValues.map(monthValue =>
+        fetch(`/api/events?month=${monthValue}`)
+      )
+    );
+
+    const results = await Promise.all(
+      responses.map(response => response.json())
+    );
+
+    eventMap = {};
+
+    results.forEach(result => {
+      if (result.status !== "ok") {
+        return;
+      }
+
+      result.events.forEach(eventData => {
+        eventMap[eventData.event_date] =
+          eventData.event_name;
+      });
+    });
+
+  } catch (error) {
+    console.error(
+      "イベント情報を取得できませんでした。",
+      error
+    );
+  }
 }
 
 /*
@@ -511,7 +627,28 @@ function render() {
 
       const div = document.createElement("div");
       div.className = "day";
-      div.innerText = d;
+
+      /*
+        日付の数字を表示する。
+      */
+      const dayNumber = document.createElement("span");
+      dayNumber.className = "day-number";
+      dayNumber.innerText = d;
+
+      div.appendChild(dayNumber);
+
+      /*
+        イベント開催日はイベント名を表示する。
+      */
+      if (eventMap[key]) {
+        div.classList.add("event-day");
+
+        const eventLabel = document.createElement("span");
+        eventLabel.className = "event-label";
+        eventLabel.innerText = eventMap[key];
+
+        div.appendChild(eventLabel);
+      }
 
       const isPast = date < startOfToday;
       const isWednesday = date.getDay() === 3;
@@ -787,8 +924,21 @@ submitButton.addEventListener("click", async event => {
   }
 });
 
-render();
-initLiff();
+/*
+  イベント情報を取得してから画面を初期化する。
+*/
+async function initializePage() {
+  await loadEvents();
+
+  /*
+    LINE情報の取得前にもカレンダーを表示する。
+  */
+  render();
+
+  await initLiff();
+}
+
+initializePage();
 </script>
 </body>
 </html>
