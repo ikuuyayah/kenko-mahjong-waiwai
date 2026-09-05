@@ -450,16 +450,6 @@ function render() {
 async function loadParticipants(date) {
   selectedDate = date;
 
-/*
-  イベント情報を取得してからカレンダーを表示する。
-*/
-async function initializeCalendar() {
-  await loadEvents();
-  render();
-}
-
-initializeCalendar();
-
   selectedDateBox.innerText =
     `${formatDisplayDate(date)}の参加者`;
 
@@ -531,7 +521,15 @@ initializeCalendar();
   }
 }
 
-render();
+/*
+  イベント情報を取得してからカレンダーを表示する。
+*/
+async function initializeCalendar() {
+  await loadEvents();
+  render();
+}
+
+initializeCalendar();
 </script>
 
 </body>
